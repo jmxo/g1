@@ -42,6 +42,8 @@ Example of a valid JSON response:
     ]
     
     steps = []
+ 
+    # First pass of reasoning
     step_count = 1
     total_thinking_time = 0
     
@@ -63,6 +65,26 @@ Example of a valid JSON response:
 
         # Yield after each step for Streamlit to update
         yield steps, None  # We're not yielding the total time until the end
+
+    # Introduce a second pass for recursive reasoning
+    step_count = 1  # Reset step count for second pass
+    second_pass_messages = messages + [{"role": "user", "content": "Please re-examine your reasoning. Identify any weak points or alternative solutions you may have missed."}]
+
+    while True:
+        start_time = time.time()
+        step_data = make_api_call(second_pass_messages, 300)
+        end_time = time.time()
+        thinking_time = end_time - start_time
+        total_thinking_time += thinking_time
+
+        steps.append((f"Second Pass Step {step_count}: {step_data['title']}", step_data["content"], thinking_time))
+        second_pass_messages.append({"role": "assistant", "content": json.dumps(step_data)})
+
+        if (step_data["next_action"] == "final_answer" or step_count > 10):  # Keep second pass limited to avoid excessive looping
+            break
+
+        step_count += 1
+        yield steps, None  # Yield after each step for Streamlit to update
 
     # Generate final answer
     messages.append({"role": "user", "content": "Please provide the final answer based on your reasoning above."})
